@@ -2,7 +2,7 @@ import os
 import logging
 import redis
 from dotenv import load_dotenv
-from moltin import get_products
+from moltin import get_products, get_product_details
 
 from telegram import ReplyKeyboardMarkup, Update
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -22,22 +22,20 @@ def start(update: Update, context: CallbackContext):
         keyboard.append([InlineKeyboardButton(product_name, callback_data=product_id)])
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(text='Привет', reply_markup=reply_markup)
-    return 'ECHO'
+    return 'HANDLE_MENU'
 
 
-def button(update, context):
-    products = get_products(client_id)
-    keyboard = []
-    for product in products:
-        product_id = product['id']
-        product_name = product['name']
-        keyboard.append([InlineKeyboardButton(product_name, callback_data=product_id)])
+def handle_menu(update, context):
     query = update.callback_query
     query.answer()
+    product = get_product_details(client_id, query.data)
     query.edit_message_text(
-        text=f"Selected option: {query.data}",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        f" Selected option: {product['name']}\n"
+        f"{product['meta']['display_price']['with_tax']['formatted']}\n"
+        f"{product['description']}\n"
+        f"{product['meta']['stock']['level']} ",
     )
+    return 'START'
     
 
 def echo(update, context):
@@ -108,7 +106,7 @@ if __name__ == '__main__':
     dispatcher = updater.dispatcher
     
     #dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    updater.dispatcher.add_handler(CallbackQueryHandler(handle_menu))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
     dispatcher.add_handler(CommandHandler('start', handle_users_reply))
     updater.start_polling()
